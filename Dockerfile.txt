@@ -31,8 +31,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of your application code into the container
 COPY . /app
 
-# Expose the port your application runs on (Flask default is 5000)
+# Expose the port your application runs on (often 8050 for Dash)
 EXPOSE 8050
 
-# Define the command to run your application (Flask, assuming app object is in main.py)
+# Define the command to run your application (Dash, assuming your main file is main.py)
 CMD ["python", "main.py"]
