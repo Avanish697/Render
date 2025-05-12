@@ -1,0 +1,32 @@
+# Use official Python image
+FROM python:3.11-slim
+
+# Install required system packages
+RUN apt-get update && apt-get install -y \
+    curl gnupg2 unixodbc-dev gcc g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Add Microsoft repository for ODBC driver
+RUN curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - \
+    && curl https://packages.microsoft.com/config/debian/12/prod.list > /etc/apt/sources.list.d/mssql-release.list
+
+# Install the ODBC driver
+RUN apt-get update && ACCEPT_EULA=Y apt-get install -y \
+    msodbcsql17 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app directory
+WORKDIR /app
+
+# Copy your code
+COPY . /app
+
+# Install Python dependencies
+RUN pip install --upgrade pip
+RUN pip install -r requirements.txt
+
+# Expose FastAPI port
+EXPOSE 8000
+
+# Start FastAPI app using Uvicorn
+CMD ["gunicorn", "main:app", "--host", "0.0.0.0", "--port", "8050"]
