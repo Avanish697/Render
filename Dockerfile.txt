@@ -1,45 +1,38 @@
-FROM python:3.8-slim-buster
+# Use an official Python runtime as a parent image
+FROM python:3.9-slim-buster
 
-ENV DEBIAN_FRONTEND=noninteractive
-ENV ACCEPT_EULA=Y
+# Set the working directory in the container
+WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update -y && \
-    apt-get install -y --no-install-recommends \
-        curl \
-        gnupg \
-        unixodbc-dev \
-        gcc \
-        g++ \
-        build-essential \
-        libssl-dev \
-        libffi-dev \
-        libpq-dev
+# Install system dependencies required for the ODBC driver
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    unixodbc \
+    unixodbc-dev \
+    libodbc1 \
+    software-properties-common \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
 
-# Add Microsoft package signing key and repository
-RUN curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - && \
-    curl https://packages.microsoft.com/config/debian/10/prod.list > /etc/apt/sources.list.d/mssql-release.list
+# Add Microsoft's repository for SQL Server ODBC driver
+RUN wget -qO- https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
+RUN add-apt-repository "$(wget -qO- https://packages.microsoft.com/config/debian/10/prod.list)"
 
-# Install Microsoft ODBC Driver 17 for SQL Server and tools
-RUN apt-get update && \
-    ACCEPT_EULA=Y apt-get install -y --no-install-recommends \
-        msodbcsql17 \
-        mssql-tools && \
-    echo 'export PATH="$PATH:/opt/mssql-tools/bin"' >> ~/.bashrc
+# Install the ODBC Driver 17 for SQL Server
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    msodbcsql17 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy the requirements file into the container
+COPY requirements.txt /app/requirements.txt
 
 # Install Python dependencies
-COPY requirements.txt /app/requirements.txt
-WORKDIR /app
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Copy the rest of your application code into the container
 COPY . /app
 
-# Set environment variables if needed
-# ENV VAR_NAME=value
-
-# Expose application port
+# Expose the port your application runs on (Flask default is 5000)
 EXPOSE 8050
 
-# Set default command
+# Define the command to run your application (Flask, assuming app object is in main.py)
 CMD ["python", "main.py"]
