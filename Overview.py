@@ -6,7 +6,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import sqlalchemy
-import pymssql  # Added pymssql import
+import urllib
 
 # SQL setup
 server = 'valentasql.database.windows.net'
@@ -15,12 +15,10 @@ username = 'valdb'
 password = 'Valenta@1234'
 table_name = 'dbo.INVOICES'
 
-# Use pymssql instead of pyodbc
-engine = sqlalchemy.create_engine(
-    f"mssql+pymssql://{username}:{password}@{server}/{database}"
+params = urllib.parse.quote_plus(
+    f"DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password};"
 )
-
-# Read data from SQL
+engine = sqlalchemy.create_engine(f"mssql+pyodbc:///?odbc_connect={params}")
 df = pd.read_sql(f"SELECT * FROM {table_name}", engine)
 
 df['Invoice_Date'] = pd.to_datetime(df['Invoice_Date'], errors='coerce')
@@ -31,7 +29,6 @@ df['Month'] = df['Invoice_Date'].dt.month_name()
 df['AccountCode'] = df['AccountCode'].fillna("Unknown")
 df['Location'] = df['Location'].fillna("Unknown")
 
-# KPI Card function remains unchanged
 def kpi_card(title, value):
     return dbc.Card(
         dbc.CardBody([
@@ -42,19 +39,44 @@ def kpi_card(title, value):
         style={"backgroundColor": "orange", "borderRadius": "10px", "minWidth": "200px"}
     )
 
-# Layout and callbacks remain unchanged
-
 layout = dbc.Container([
     dcc.Store(id="user-store"),  # ✅ Required for callback input
     dbc.Row([
         dbc.Col(html.H4("All Region Invoice and Commissions Report", className="text-white mt-3"), width=10)
     ], className="mb-4"),
 
-    # Add the rest of your layout and callbacks as is...
-])
+    dbc.Row([
+        dbc.Col(dcc.Dropdown(options=[{"label": y, "value": y} for y in sorted(df["Year"].dropna().unique())],
+                             placeholder="Year", id="year-filter", className="text-dark", multi=True), width=3),
+        dbc.Col(dcc.Dropdown(options=[{"label": m, "value": m} for m in sorted(df["Month"].dropna().unique())],
+                             placeholder="Month", id="month-filter", className="text-dark", multi=True), width=3),
+        dbc.Col(dcc.Dropdown(options=[{"label": e, "value": e} for e in sorted(df["Entity"].dropna().unique())],
+                             placeholder="Entity", id="entity-filter", className="text-dark", multi=True), width=3),
+        dbc.Col(dcc.Dropdown(id="mpcode-filter", placeholder="MP Code", className="text-dark", multi=True), width=3),
+    ], className="mb-3"),
 
-# Callback function remains unchanged
+    dbc.Row(id="kpis", className="mb-4 d-flex flex-row flex-wrap", style={"gap": "10px"}),
 
+    dbc.Row([
+        dbc.Col(html.Div(id="data-table", style={
+            "backgroundColor": "#2d2d2d", "padding": "10px", "borderRadius": "10px", "color": "white",
+            "overflowX": "auto", "maxHeight": "500px", "overflowY": "auto"
+        }), width=8),
+
+        dbc.Col([
+            dcc.Graph(id="line-chart", style={"height": "350px"}),
+            dcc.Graph(id="donut-chart", style={"height": "350px"})
+        ], width=4)
+    ]),
+
+    dbc.Row([
+        dbc.Col(html.Button("Export Table", id="export-button", n_clicks=0, className="btn btn-warning")),
+        dcc.Download(id="download-table-csv")
+    ], className="mt-3")
+], fluid=True, style={"backgroundColor": "#121212", "padding": "20px"})
+
+
+# Callbacks
 def update_dashboard(year, month, entity, mpcode, user_data):
     username = user_data.get("username") if user_data else "admin"
     dff = df.copy()
