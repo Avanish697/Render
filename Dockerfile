@@ -1,19 +1,37 @@
-# Use the official lightweight Python image
 FROM python:3.11-slim
+
+# Install required system packages for pyodbc and SQL Server
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    gnupg2 \
+    curl \
+    unixodbc \
+    unixodbc-dev \
+    libpq-dev \
+    freetds-dev \
+    freetds-bin \
+    tdsodbc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Optional: Install Microsoft ODBC Driver 18 (or use FreeTDS)
+# RUN curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - \
+#     && curl https://packages.microsoft.com/config/debian/10/prod.list > /etc/apt/sources.list.d/mssql-release.list \
+#     && apt-get update \
+#     && ACCEPT_EULA=Y apt-get install -y msodbcsql18
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Set working directory
 WORKDIR /app
 
-# Install dependencies
+# Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy app
 COPY . .
 
-# Run the web server
-CMD ["gunicorn", "-b", ":8050", "main:app"]
+# Expose port 8080 (for Render)
+CMD ["gunicorn", "-b", ":8080", "main:app"]
